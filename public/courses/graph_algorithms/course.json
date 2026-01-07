@@ -1,0 +1,7 @@
+{
+  "id": "graph_algorithms",
+  "title": "Graph Algorithms",
+  "description": "BFS, DFS, Dijkstra, Kruskal, and Prim's algorithms",
+  "difficulty": "Advanced",
+  "challenges": []
+}

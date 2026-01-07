@@ -1,0 +1,7 @@
+[
+  { "id": "sorting", "title": "Sorting Algorithms", "folder": "sorting" },
+  { "id": "searching", "title": "Searching Algorithms", "folder": "searching" },
+  { "id": "data_structures", "title": "Data Structures", "folder": "data_structures" },
+  { "id": "dynamic_programming", "title": "Dynamic Programming", "folder": "dynamic_programming" },
+  { "id": "graph_algorithms", "title": "Graph Algorithms", "folder": "graph_algorithms" }
+]
