@@ -13,7 +13,7 @@ declare global {
 }
 
 const Editor = () => {
-  const { courseId } = useParams()
+  const { courseId, challengeId, sectionId } = useParams()
   const navigate = useNavigate()
   const editorRef = useRef<any>(null)
   const monacoRef = useRef<any>(null)
@@ -72,6 +72,29 @@ const Editor = () => {
       }
     }
   }, [navigate, courseId])
+
+  // Load challenge/section from URL parameters
+  useEffect(() => {
+    if (!courseMeta) return
+    
+    if (challengeId && courseMeta.challenges) {
+      const challenge = courseMeta.challenges.find((ch: any) => ch.id === challengeId)
+      if (challenge) {
+        setSelectedChallenge(challenge)
+        
+        if (sectionId && challenge.sections) {
+          const section = challenge.sections.find((sec: any) => sec.id === sectionId)
+          if (section) {
+            // Load section without navigation (already at correct URL)
+            loadSectionContent(section.file, section)
+          }
+        } else if (challenge.sections && challenge.sections.length > 0) {
+          // Load first section by default without navigation
+          loadSectionContent(challenge.sections[0].file, challenge.sections[0])
+        }
+      }
+    }
+  }, [courseMeta, challengeId, sectionId])
 
   // Initialize Monaco editor when Monaco library is loaded and view is in editor mode
   useEffect(() => {
@@ -252,7 +275,7 @@ sys.stdout = StringIO()
     }
   }
 
-  const loadSection = async (filePath: string, section: any) => {
+  const loadSectionContent = async (filePath: string, section: any) => {
     try {
       setStatus('Loading section...')
       const cid = courseMeta?.id || courseId
@@ -276,11 +299,26 @@ sys.stdout = StringIO()
     }
   }
 
+  const loadSection = async (filePath: string, section: any) => {
+    await loadSectionContent(filePath, section)
+    
+    // Update URL to reflect the current section
+    if (selectedChallenge) {
+      navigate(`/course/${courseId}/${selectedChallenge.id}/${section.id}`)
+    }
+  }
+
   const selectChallenge = async (ch: any) => {
     setSelectedChallenge(ch)
     // Load first section if available
     if (ch.sections && ch.sections.length > 0) {
-      await loadSection(ch.sections[0].file, ch.sections[0])
+      const firstSection = ch.sections[0]
+      await loadSectionContent(firstSection.file, firstSection)
+      // Update URL to reflect the challenge and first section
+      navigate(`/course/${courseId}/${ch.id}/${firstSection.id}`)
+    } else {
+      // Update URL to reflect the current challenge
+      navigate(`/course/${courseId}/${ch.id}`)
     }
   }
 

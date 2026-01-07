@@ -17,6 +17,8 @@ function App() {
         <Route path="/features" element={<Features />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/course/:courseId" element={<Editor />} />
+        <Route path="/course/:courseId/:challengeId" element={<Editor />} />
+        <Route path="/course/:courseId/:challengeId/:sectionId" element={<Editor />} />
       </Routes>
     </BrowserRouter>
   )
