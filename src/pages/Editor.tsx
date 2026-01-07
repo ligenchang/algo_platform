@@ -30,6 +30,7 @@ const Editor = () => {
   const [sectionContent, setSectionContent] = useState<string>('')
   const [viewMode, setViewMode] = useState<'content' | 'editor'>('content')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [monacoLoaded, setMonacoLoaded] = useState(false)
 
   useEffect(() => {
     const user = localStorage.getItem('user')
@@ -38,25 +39,14 @@ const Editor = () => {
       return
     }
 
-    // Load Monaco Editor
+    // Load Monaco Editor library
     const script = document.createElement('script')
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js'
     script.async = true
     script.onload = () => {
       window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } })
       window.require(['vs/editor/editor.main'], () => {
-        if (editorRef.current && !monacoRef.current) {
-          monacoRef.current = window.monaco.editor.create(editorRef.current, {
-            value: '# Write your Python code here\nprint("Hello, Algorithm!")\n\n# Example: Bubble Sort\ndef bubble_sort(arr):\n    n = len(arr)\n    for i in range(n):\n        for j in range(0, n-i-1):\n            if arr[j] > arr[j+1]:\n                arr[j], arr[j+1] = arr[j+1], arr[j]\n    return arr\n\ntest_array = [64, 34, 25, 12, 22, 11, 90]\nprint("Sorted array:", bubble_sort(test_array))',
-            language: 'python',
-            theme: 'vs-dark',
-            automaticLayout: true,
-            fontSize: 14,
-            minimap: { enabled: true },
-            scrollBeyondLastLine: false,
-            wordWrap: 'on'
-          })
-        }
+        setMonacoLoaded(true)
       })
     }
     document.body.appendChild(script)
@@ -78,9 +68,26 @@ const Editor = () => {
     return () => {
       if (monacoRef.current) {
         monacoRef.current.dispose()
+        monacoRef.current = null
       }
     }
   }, [navigate, courseId])
+
+  // Initialize Monaco editor when Monaco library is loaded and view is in editor mode
+  useEffect(() => {
+    if (monacoLoaded && viewMode === 'editor' && editorRef.current && !monacoRef.current) {
+      monacoRef.current = window.monaco.editor.create(editorRef.current, {
+        value: '# Write your Python code here\nprint("Hello, Algorithm!")\n\n# Select a challenge and click "Code Editor" to load starter code',
+        language: 'python',
+        theme: 'vs-dark',
+        automaticLayout: true,
+        fontSize: 14,
+        minimap: { enabled: true },
+        scrollBeyondLastLine: false,
+        wordWrap: 'on'
+      })
+    }
+  }, [monacoLoaded, viewMode])
 
   const loadPyodide = async () => {
     setStatus('Loading Python...')
@@ -280,9 +287,38 @@ sys.stdout = StringIO()
   const openEditor = async (ch: any) => {
     setSelectedChallenge(ch)
     setViewMode('editor')
+    
+    // Wait for Monaco to be ready before loading starter code
+    const waitForMonaco = () => {
+      return new Promise<void>((resolve) => {
+        const checkMonaco = () => {
+          if (window.monaco && editorRef.current) {
+            if (!monacoRef.current) {
+              monacoRef.current = window.monaco.editor.create(editorRef.current, {
+                value: '# Loading starter code...',
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                fontSize: 14,
+                minimap: { enabled: true },
+                scrollBeyondLastLine: false,
+                wordWrap: 'on'
+              })
+            }
+            resolve()
+          } else {
+            setTimeout(checkMonaco, 50)
+          }
+        }
+        checkMonaco()
+      })
+    }
+    
+    await waitForMonaco()
+    
     // Load starter code
     const cid = courseMeta?.id || courseId
-    if (ch.starter) {
+    if (ch.starter && monacoRef.current) {
       await loadStarter(`/courses/${cid}/${ch.starter}`)
     }
   }
@@ -440,67 +476,67 @@ sys.stdout = StringIO()
 
           {/* Content Area */}
           <div className="content-area">
-            {viewMode === 'content' ? (
-              <div className="content-viewer">
-                {sectionContent ? (
-                  <div className="markdown-wrapper">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {sectionContent}
-                    </ReactMarkdown>
-                  </div>
-                ) : (
-                  <div className="empty-state">
-                    <i className="fas fa-book-open"></i>
-                    <h2>Welcome to {courseMeta?.title || 'the Course'}</h2>
-                    <p>Select a challenge from the sidebar to begin learning.</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="editor-view">
-                <div className="editor-toolbar">
-                  <button className="btn-primary" onClick={handleRunCode} disabled={loading}>
-                    <i className="fas fa-play"></i> {loading ? 'Running...' : 'Run Code'}
-                  </button>
-                  <button className="btn-secondary" onClick={handleDebug}>
-                    <i className="fas fa-bug"></i> Debug
-                  </button>
-                  <button className="btn-secondary" onClick={handleClear}>
-                    <i className="fas fa-eraser"></i> Clear
-                  </button>
-                  <button className="btn-secondary" onClick={handleSave}>
-                    <i className="fas fa-save"></i> Save
-                  </button>
-                  <button 
-                    className="btn-success" 
-                    onClick={async () => {
-                      if (selectedChallenge?.tests) {
-                        const cid = courseMeta?.id || courseId
-                        await handleRunTests(`/courses/${cid}/${selectedChallenge.tests}`)
-                      }
-                    }}
-                  >
-                    <i className="fas fa-check"></i> Run Tests
-                  </button>
+            {/* Content View */}
+            <div className="content-viewer" style={{ display: viewMode === 'content' ? 'block' : 'none' }}>
+              {sectionContent ? (
+                <div className="markdown-wrapper">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {sectionContent}
+                  </ReactMarkdown>
                 </div>
-                
-                <div className="editor-workspace">
-                  <div className="editor-panel">
-                    <div ref={editorRef} className="monaco-editor"></div>
-                  </div>
-                  <div className="output-panel">
-                    <h4><i className="fas fa-terminal"></i> Output</h4>
-                    <pre className="output">{output || 'Output will appear here...'}</pre>
-                    {showDebug && (
-                      <>
-                        <h4><i className="fas fa-bug"></i> Debug</h4>
-                        <pre className="debug">{debugOutput}</pre>
-                      </>
-                    )}
-                  </div>
+              ) : (
+                <div className="empty-state">
+                  <i className="fas fa-book-open"></i>
+                  <h2>Welcome to {courseMeta?.title || 'the Course'}</h2>
+                  <p>Select a challenge from the sidebar to begin learning.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Editor View */}
+            <div className="editor-view" style={{ display: viewMode === 'editor' ? 'flex' : 'none' }}>
+              <div className="editor-toolbar">
+                <button className="btn-primary" onClick={handleRunCode} disabled={loading}>
+                  <i className="fas fa-play"></i> {loading ? 'Running...' : 'Run Code'}
+                </button>
+                <button className="btn-secondary" onClick={handleDebug}>
+                  <i className="fas fa-bug"></i> Debug
+                </button>
+                <button className="btn-secondary" onClick={handleClear}>
+                  <i className="fas fa-eraser"></i> Clear
+                </button>
+                <button className="btn-secondary" onClick={handleSave}>
+                  <i className="fas fa-save"></i> Save
+                </button>
+                <button 
+                  className="btn-success" 
+                  onClick={async () => {
+                    if (selectedChallenge?.tests) {
+                      const cid = courseMeta?.id || courseId
+                      await handleRunTests(`/courses/${cid}/${selectedChallenge.tests}`)
+                    }
+                  }}
+                >
+                  <i className="fas fa-check"></i> Run Tests
+                </button>
+              </div>
+              
+              <div className="editor-workspace">
+                <div className="editor-panel">
+                  <div ref={editorRef} className="monaco-editor"></div>
+                </div>
+                <div className="output-panel">
+                  <h4><i className="fas fa-terminal"></i> Output</h4>
+                  <pre className="output">{output || 'Output will appear here...'}</pre>
+                  {showDebug && (
+                    <>
+                      <h4><i className="fas fa-bug"></i> Debug</h4>
+                      <pre className="debug">{debugOutput}</pre>
+                    </>
+                  )}
                 </div>
               </div>
-            )}
+            </div>
           </div>
         </main>
       </div>
