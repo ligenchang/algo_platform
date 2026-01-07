@@ -1,20 +1,22 @@
 {
   "id": "dynamic_programming",
   "title": "Dynamic Programming",
-  "description": "Solve optimization problems with DP techniques",
-  "difficulty": "Advanced",
+  "description": "Master DP by building from recursive solutions to optimized dynamic programming",
+  "difficulty": "Intermediate to Advanced",
   "challenges": [
     {
       "id": "knapsack",
-      "title": "Knapsack Problem",
+      "title": "0/1 Knapsack Problem",
       "starter": "knapsack_starter.py",
       "statement": "knapsack.md",
       "tests": "knapsack_tests.py",
       "sections": [
-        { "id": "intro", "title": "Introduction", "file": "knapsack/intro.md" },
-        { "id": "analysis", "title": "Analysis", "file": "knapsack/analysis.md" },
-        { "id": "implementation", "title": "Implementation", "file": "knapsack/implementation.md" },
-        { "id": "tests", "title": "Tests", "file": "knapsack/tests.md" }
+        { "id": "intro", "title": "1. Problem Introduction", "file": "knapsack/intro.md", "code": "knapsack/intro_code.py" },
+        { "id": "recursive", "title": "2. Recursive Solution", "file": "knapsack/recursive.md", "code": "knapsack/recursive_code.py" },
+        { "id": "memoization", "title": "3. Memoization (Top-Down DP)", "file": "knapsack/memoization.md", "code": "knapsack/memoization_code.py" },
+        { "id": "tabulation", "title": "4. Tabulation (Bottom-Up DP)", "file": "knapsack/tabulation.md", "code": "knapsack/tabulation_code.py" },
+        { "id": "optimization", "title": "5. Space Optimization", "file": "knapsack/optimization.md", "code": "knapsack/optimization_code.py" },
+        { "id": "practice", "title": "6. Practice Problems", "file": "knapsack/practice.md", "code": "knapsack/practice_code.py" }
       ]
     }
   ]
