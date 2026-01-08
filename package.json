@@ -1,7 +1,8 @@
 {
   "name": "algo_platform",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Interactive Algorithm Learning Platform with hands-on coding challenges",
   "type": "module",
   "scripts": {
     "dev": "vite",

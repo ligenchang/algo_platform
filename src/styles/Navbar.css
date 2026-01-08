@@ -1,22 +1,20 @@
 .navbar {
-  background: white;
-  border-bottom: 2px solid #e8e9f3;
-  padding: 18px 32px;
+  background: linear-gradient(135deg, #1a1a2e 0%, #2d3748 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 0 32px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
   position: sticky;
   top: 0;
-  z-index: 100;
-  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.06);
-  backdrop-filter: blur(10px);
-  background: linear-gradient(to bottom, white 0%, rgba(250, 251, 255, 0.95) 100%);
+  z-index: 1000;
 }
 
 .nav-content {
-  max-width: 1400px;
-  margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 32px;
+  height: 60px;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
 .nav-brand {
@@ -45,7 +43,7 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.3));
+  filter: drop-shadow(0 2px 4px rgba(102, 126, 234, 0.2));
 }
 
 .nav-links {
@@ -55,7 +53,7 @@
 }
 
 .nav-links > a {
-  color: #4a5568;
+  color: rgba(255, 255, 255, 0.9);
   text-decoration: none;
   font-weight: 500;
   font-size: 15px;
@@ -66,8 +64,8 @@
 }
 
 .nav-links > a:hover {
-  color: #667eea;
-  background: rgba(102, 126, 234, 0.08);
+  color: white;
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .nav-links > a::after {
@@ -94,13 +92,13 @@
 }
 
 .nav-user span {
-  color: #2d3748;
+  color: #1a1a2e;
   font-size: 14px;
   font-weight: 600;
   padding: 8px 16px;
-  background: rgba(102, 126, 234, 0.08);
+  background: rgba(255, 255, 255, 0.95);
   border-radius: 20px;
-  border: 1px solid rgba(102, 126, 234, 0.15);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 /* Navbar Buttons */
@@ -119,17 +117,18 @@
 }
 
 .navbar .btn-outline {
-  background: white;
-  color: #667eea;
-  border: 2px solid #667eea;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+  background: transparent;
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  box-shadow: none;
 }
 
 .navbar .btn-outline:hover {
-  background: #667eea;
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.5);
   color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.25);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.1);
 }
 
 .navbar .btn-danger {
@@ -141,7 +140,7 @@
 
 .navbar .btn-danger:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.35);
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3);
   filter: brightness(1.1);
 }
 

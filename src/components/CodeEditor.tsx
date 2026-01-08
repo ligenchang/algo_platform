@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 
 declare global {
   interface Window {
-    monaco: any
-    require: any
+    monaco: unknown
+    require: ((paths: string[], callback: (monaco: unknown) => void) => void) | undefined
   }
 }
 
@@ -50,13 +50,16 @@ const CodeEditor = ({
   onSwitchToContent
 }: CodeEditorProps) => {
   const navigate = useNavigate()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const editorRef = useRef<any>(null)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const monacoRef = useRef<any>(null)
   const [output, setOutput] = useState('')
   const [debugOutput, setDebugOutput] = useState('')
   const [loading, setLoading] = useState(false)
   const [showDebug, setShowDebug] = useState(false)
   const [status, setStatus] = useState('Ready')
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [pyodide, setPyodide] = useState<any>(null)
 
   // Initialize Monaco editor
@@ -99,12 +102,9 @@ const CodeEditor = ({
           if (codeResp.ok) {
             const codeText = await codeResp.text()
             monacoRef.current.setValue(codeText)
-            console.log('Loaded section-specific code:', codePath)
-          } else {
-            console.log('Section code file not found:', codePath)
           }
-        } catch (err) {
-          console.log('Error loading section code:', err)
+        } catch {
+          // Section code file not found, will use default
         }
       }
     }
@@ -126,6 +126,7 @@ const CodeEditor = ({
       script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
       script.async = true
       script.onload = async () => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pyodideInstance = await (window as any).loadPyodide({
           indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
         })
@@ -168,8 +169,9 @@ sys.stdout = StringIO()
       const stdout = await pyodide.runPythonAsync('sys.stdout.getvalue()')
       setOutput(stdout || 'Code executed successfully (no output)')
       setStatus('Success')
-    } catch (error: any) {
-      setOutput(`Error:\n${error.message || error}`)
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      setOutput(`Error:\\n${errorMessage}`)
       setStatus('Error')
     } finally {
       setLoading(false)
@@ -270,13 +272,15 @@ except Exception as e:
         const results = JSON.parse(resultsJson)
         
         // Format results nicely
-        let formatted = '═══════════════════════════════════════════════════════\n'
-        formatted += '                    TEST RESULTS\n'
-        formatted += '═══════════════════════════════════════════════════════\n\n'
+        let formatted = '═══════════════════════════════════════════════════════\\n'
+        formatted += '                    TEST RESULTS\\n'
+        formatted += '═══════════════════════════════════════════════════════\\n\\n'
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const passed = results.filter((r: any) => r.passed).length
         const total = results.length
         
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         results.forEach((r: any) => {
           const status = r.passed ? '✓ PASS' : '✗ FAIL'
           formatted += `Test ${r.test_num}: ${status}\n`
@@ -295,9 +299,10 @@ except Exception as e:
         setOutput(output)
         setStatus('Error')
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err)
-      setOutput(`Test run failed:\n${err.message || err}`)
+      const errorMessage = err instanceof Error ? err.message : String(err)
+      setOutput(`Test run failed:\\n${errorMessage}`)
       setStatus('Error')
     }
   }
