@@ -309,17 +309,40 @@ except Exception as e:
 
   return (
     <>
-      {/* Sidebar - collapsed version */}
-      <aside className="course-sidebar collapsed">
+      {/* Sidebar - keep expanded, not collapsed */}
+      <aside className="course-sidebar">
         <div className="sidebar-header">
-          <div className="course-info"></div>
+          <div className="course-info">
+            <i className="fas fa-graduation-cap"></i>
+            <div className="course-title">
+              <h3>{courseMeta?.title || 'Course'}</h3>
+              <p>Code Editor Mode</p>
+            </div>
+          </div>
           <button 
             className="collapse-btn"
             onClick={onSwitchToContent}
-            title="Show Content"
+            title="Back to Content"
           >
-            <i className="fas fa-chevron-right"></i>
+            <i className="fas fa-book"></i>
           </button>
+        </div>
+        
+        <div className="sidebar-content">
+          <div className="challenges-section">
+            {selectedChallenge && (
+              <div className="challenge-info-box">
+                <h4>Current Challenge</h4>
+                <p>{selectedChallenge.title}</p>
+                {selectedSection && (
+                  <>
+                    <h4 style={{marginTop: '16px'}}>Current Section</h4>
+                    <p>{selectedSection.title}</p>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </aside>
 

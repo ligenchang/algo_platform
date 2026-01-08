@@ -23,7 +23,8 @@ const Dashboard = () => {
       description: 'Master bubble, merge, quick, and heap sort',
       difficulty: 'Beginner',
       progress: 45,
-      folder: 'sorting'
+      folder: 'sorting',
+      isLocked: false
     },
     {
       id: 'searching',
@@ -31,7 +32,8 @@ const Dashboard = () => {
       description: 'Learn binary search, linear search, and more',
       difficulty: 'Beginner',
       progress: 60,
-      folder: 'searching'
+      folder: 'searching',
+      isLocked: false
     },
     {
       id: 'data_structures',
@@ -39,7 +41,8 @@ const Dashboard = () => {
       description: 'Arrays, linked lists, stacks, queues, trees, graphs',
       difficulty: 'Intermediate',
       progress: 30,
-      folder: 'data_structures'
+      folder: 'data_structures',
+      isLocked: false
     },
     {
       id: 'dynamic_programming',
@@ -47,7 +50,8 @@ const Dashboard = () => {
       description: 'Solve optimization problems with DP techniques',
       difficulty: 'Advanced',
       progress: 15,
-      folder: 'dynamic_programming'
+      folder: 'dynamic_programming',
+      isLocked: false
     },
     {
       id: 'graph_algorithms',
@@ -55,9 +59,25 @@ const Dashboard = () => {
       description: "BFS, DFS, Dijkstra, Kruskal, and Prim's algorithms",
       difficulty: 'Advanced',
       progress: 0,
-      folder: 'graph_algorithms'
+      folder: 'graph_algorithms',
+      isLocked: !user?.isPro
     }
   ]
+
+  const getCoursesCount = () => {
+    const unlockedCourses = courses.filter(c => !c.isLocked).length
+    return user?.isPro ? '50+' : unlockedCourses.toString()
+  }
+
+  const handleCourseClick = (course: any) => {
+    if (course.isLocked) {
+      if (window.confirm('This course is only available in Pro plan. Would you like to upgrade?')) {
+        navigate('/pricing')
+      }
+    } else {
+      navigate(`/course/${course.id}`)
+    }
+  }
 
   if (!user) {
     return <div>Loading...</div>
@@ -79,7 +99,7 @@ const Dashboard = () => {
               <i className="fas fa-book"></i>
             </div>
             <div className="stat-content">
-              <h3>5</h3>
+              <h3>{getCoursesCount()}</h3>
               <p>Courses Available</p>
             </div>
           </div>
@@ -109,17 +129,43 @@ const Dashboard = () => {
               <i className="fas fa-star"></i>
             </div>
             <div className="stat-content">
-              <h3>{user.tier.toUpperCase()}</h3>
+              <h3>{user?.isPro ? 'PRO' : 'FREE'}</h3>
               <p>Current Plan</p>
+              {!user?.isPro && (
+                <Link to="/pricing" className="upgrade-link">
+                  <i className="fas fa-crown"></i> Upgrade
+                </Link>
+              )}
             </div>
           </div>
         </div>
 
         <section className="courses-section">
-          <h2>Your Courses</h2>
+          <div className="courses-header">
+            <h2>Your Courses</h2>
+            {!user?.isPro && (
+              <div className="pro-banner">
+                <i className="fas fa-crown"></i>
+                <span>Unlock 45+ more courses with Pro</span>
+                <Link to="/pricing" className="btn btn-gradient btn-small">
+                  Upgrade Now
+                </Link>
+              </div>
+            )}
+          </div>
           <div className="courses-grid">
             {courses.map((course) => (
-              <div key={course.id} className="course-card">
+              <div 
+                key={course.id} 
+                className={`course-card ${course.isLocked ? 'locked' : ''}`}
+                onClick={() => course.isLocked && handleCourseClick(course)}
+              >
+                {course.isLocked && (
+                  <div className="lock-overlay">
+                    <i className="fas fa-lock"></i>
+                    <span>Pro Only</span>
+                  </div>
+                )}
                 <div className="course-header">
                   <h3>{course.title}</h3>
                   <span className={`difficulty ${course.difficulty.toLowerCase()}`}>
@@ -128,14 +174,24 @@ const Dashboard = () => {
                 </div>
                 <p>{course.description}</p>
                 
-                <div className="progress-bar">
-                  <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
-                </div>
-                <p className="progress-text">{course.progress}% Complete</p>
+                {!course.isLocked && (
+                  <>
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${course.progress}%` }}></div>
+                    </div>
+                    <p className="progress-text">{course.progress}% Complete</p>
+                  </>
+                )}
 
-                <Link to={`/course/${course.id}`} className="btn btn-outline">
-                  <i className="fas fa-play"></i> {course.progress > 0 ? 'Continue' : 'Start'} Course
-                </Link>
+                {course.isLocked ? (
+                  <button className="btn btn-outline" onClick={(e) => { e.stopPropagation(); handleCourseClick(course); }}>
+                    <i className="fas fa-lock"></i> Unlock with Pro
+                  </button>
+                ) : (
+                  <Link to={`/course/${course.id}`} className="btn btn-outline">
+                    <i className="fas fa-play"></i> {course.progress > 0 ? 'Continue' : 'Start'} Course
+                  </Link>
+                )}
               </div>
             ))}
           </div>

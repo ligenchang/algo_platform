@@ -1,14 +1,31 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Navbar from '../components/Navbar'
+import Footer from '../components/Footer'
 import '../styles/Login.css'
 
 const Login = () => {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [email, setEmail] = useState('test@example.com')
   const [password, setPassword] = useState('test123')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+
+  // Get redirect params
+  const redirectTo = searchParams.get('redirect')
+  const plan = searchParams.get('plan')
+
+  useEffect(() => {
+    // If already logged in, redirect
+    if (localStorage.getItem('authToken')) {
+      if (redirectTo === 'pricing' && plan) {
+        navigate(`/pricing`)
+      } else {
+        navigate('/dashboard')
+      }
+    }
+  }, [navigate, redirectTo, plan])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,12 +39,25 @@ const Login = () => {
           id: '1',
           name: email.split('@')[0],
           email,
-          tier: 'free'
+          isPro: false,
+          plan: 'Free'
         }
         localStorage.setItem('authToken', 'mock_token_' + Date.now())
         localStorage.setItem('user', JSON.stringify(user))
+        
+        // Store intended plan if redirecting to pricing
+        if (plan) {
+          sessionStorage.setItem('intendedPlan', plan.charAt(0).toUpperCase() + plan.slice(1))
+        }
+        
         setLoading(false)
-        navigate('/dashboard')
+        
+        // Redirect based on params
+        if (redirectTo === 'pricing') {
+          navigate('/pricing')
+        } else {
+          navigate('/dashboard')
+        }
       } else {
         setError('Please enter email and password')
         setLoading(false)
@@ -43,6 +73,12 @@ const Login = () => {
         <div className="login-card">
           <div className="login-header">
             <h1>Sign In</h1>
+            {plan && (
+              <p className="plan-notice">
+                <i className="fas fa-crown"></i>
+                Sign in to continue with {plan} plan
+              </p>
+            )}
             <p>Access your algorithm learning platform</p>
           </div>
 
@@ -86,10 +122,17 @@ const Login = () => {
 
           <div className="login-footer">
             <p>Demo credentials: test@example.com / test123</p>
-            <p>Don't have an account? <a href="#signup">Sign up</a></p>
+            <p>
+              Don't have an account?{' '}
+              <Link to={`/signup${redirectTo ? `?redirect=${redirectTo}&plan=${plan}` : ''}`}>
+                Sign up
+              </Link>
+            </p>
           </div>
         </div>
       </div>
+
+      <Footer />
     </div>
   )
 }
