@@ -55,6 +55,8 @@ const Editor = () => {
   
   // Content viewer state
   const [sectionContent, setSectionContent] = useState<string>('')
+  const [codeBlockOutputs, setCodeBlockOutputs] = useState<Record<number, string>>({})
+  const [runningCodeBlock, setRunningCodeBlock] = useState<number | null>(null)
   
   // Editor state
   const [monacoLoaded, setMonacoLoaded] = useState(false)
@@ -212,7 +214,62 @@ const Editor = () => {
     }
   }, [monacoLoaded, selectedSection, viewMode, courseMeta, courseId])
 
-  // Run code
+  // Run code from content code block
+  const runCodeBlock = async (code: string, blockIndex: number) => {
+    setRunningCodeBlock(blockIndex)
+    setCodeBlockOutputs(prev => ({ ...prev, [blockIndex]: 'Running...' }))
+
+    try {
+      let pyodideInstance = pyodide
+
+      if (!pyodideInstance) {
+        setCodeBlockOutputs(prev => ({ ...prev, [blockIndex]: 'Loading Python...' }))
+        const script = document.createElement('script')
+        script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
+        script.async = true
+        await new Promise((resolve, reject) => {
+          script.onload = resolve
+          script.onerror = reject
+          document.head.appendChild(script)
+        })
+        pyodideInstance = await window.loadPyodide({
+          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+        })
+        setPyodide(pyodideInstance)
+      }
+
+      // Redirect stdout to capture print statements
+      await pyodideInstance.runPythonAsync(`
+import sys
+from io import StringIO
+sys.stdout = StringIO()
+`)
+      
+      // Run the code
+      try {
+        await pyodideInstance.runPythonAsync(code)
+      } catch (execError: any) {
+        const partialOutput = await pyodideInstance.runPythonAsync('sys.stdout.getvalue()')
+        throw new Error(partialOutput ? `${partialOutput}\n\n${execError.message}` : execError.message)
+      }
+      
+      // Get the captured output
+      const output = await pyodideInstance.runPythonAsync('sys.stdout.getvalue()')
+      setCodeBlockOutputs(prev => ({ 
+        ...prev, 
+        [blockIndex]: output || 'Code executed successfully (no output)' 
+      }))
+    } catch (err: any) {
+      setCodeBlockOutputs(prev => ({ 
+        ...prev, 
+        [blockIndex]: `Error: ${err.message}` 
+      }))
+    } finally {
+      setRunningCodeBlock(null)
+    }
+  }
+
+  // Run code in Monaco editor
   const runCode = async () => {
     if (!monacoRef.current) return
     
@@ -384,6 +441,47 @@ sys.stdout = StringIO()
                         code({ node, inline, className, children, ...props }: any) {
                           const match = /language-(\w+)/.exec(className || '')
                           const language = match ? match[1] : ''
+                          const codeString = String(children).replace(/\n$/, '')
+                          
+                          if (!inline && language === 'python') {
+                            const blockIndex = node?.position?.start?.line || Math.random()
+                            const hasOutput = codeBlockOutputs[blockIndex]
+                            const isRunning = runningCodeBlock === blockIndex
+                            
+                            return (
+                              <div className="code-block-wrapper">
+                                <div className="code-block-header">
+                                  <span className="code-block-language">
+                                    <i className="fab fa-python"></i> Python
+                                  </span>
+                                  <button
+                                    className="code-block-run-btn"
+                                    onClick={() => runCodeBlock(codeString, blockIndex)}
+                                    disabled={isRunning}
+                                  >
+                                    <i className={`fas fa-${isRunning ? 'spinner fa-spin' : 'play'}`}></i>
+                                    {isRunning ? 'Running...' : 'Run'}
+                                  </button>
+                                </div>
+                                <SyntaxHighlighter
+                                  style={vscDarkPlus}
+                                  language={language}
+                                  PreTag="div"
+                                  {...props}
+                                >
+                                  {codeString}
+                                </SyntaxHighlighter>
+                                {hasOutput && (
+                                  <div className="code-block-output">
+                                    <div className="code-block-output-header">
+                                      <i className="fas fa-terminal"></i> Output
+                                    </div>
+                                    <pre>{codeBlockOutputs[blockIndex]}</pre>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          }
                           
                           return !inline && language ? (
                             <SyntaxHighlighter
@@ -392,7 +490,7 @@ sys.stdout = StringIO()
                               PreTag="div"
                               {...props}
                             >
-                              {String(children).replace(/\n$/, '')}
+                              {codeString}
                             </SyntaxHighlighter>
                           ) : (
                             <code className={className} {...props}>
