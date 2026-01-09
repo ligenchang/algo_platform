@@ -43,8 +43,15 @@ def knapsack_recursive(weights, values, n, capacity):
     # Otherwise, try both options and pick the best
     exclude = knapsack_recursive(weights, values, n-1, capacity)
     include = values[n-1] + knapsack_recursive(weights, values, n-1, capacity - weights[n-1])
-    
+    print("exclude", exclude)
     return max(exclude, include)
+
+# Example usage:
+weights = [1, 2, 3]
+values = [10, 15, 40]
+capacity = 6
+n = len(weights)
+knapsack_recursive(weights, values, n, capacity)  # Returns 55
 ```
 
 ---
