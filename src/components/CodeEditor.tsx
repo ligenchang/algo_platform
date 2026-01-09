@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import usePyodide from '../hooks/usePyodide'
 import { useNavigate } from 'react-router-dom'
 
 declare global {
@@ -112,33 +113,17 @@ const CodeEditor = ({
     loadSectionCode()
   }, [selectedSection, courseMeta, courseId])
 
-  // Load Pyodide
-  useEffect(() => {
-    if (!pyodide) {
-      loadPyodide()
-    }
-  }, [pyodide])
+  const { pyodide: pyodideFromHook, loading: pyodideLoading, error: pyodideError } = usePyodide()
 
-  const loadPyodide = async () => {
-    setStatus('Loading Python...')
-    try {
-      const script = document.createElement('script')
-      script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
-      script.async = true
-      script.onload = async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pyodideInstance = await (window as any).loadPyodide({
-          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-        })
-        setPyodide(pyodideInstance)
-        setStatus('Ready')
-      }
-      document.body.appendChild(script)
-    } catch (error) {
-      setStatus('Error loading Python')
-      console.error('Failed to load Pyodide:', error)
+  useEffect(() => {
+    if (pyodideFromHook) {
+      setPyodide(pyodideFromHook)
+      setStatus('Ready')
     }
-  }
+    if (pyodideError) {
+      setStatus('Error loading Python')
+    }
+  }, [pyodideFromHook, pyodideError])
 
   const handleRunCode = async () => {
     if (!pyodide) {

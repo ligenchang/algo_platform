@@ -84,7 +84,11 @@ const InlineCodeEditor = ({ code, language = 'python', blockIndex, monacoLoaded,
           {pyodideLoading ? <span className="spinner" /> : running ? <span className="spinner" /> : <i className="fas fa-play" />} {pyodideLoading ? 'Loading Python...' : running ? 'Running...' : 'Run'}
         </button>
       </div>
-      <div ref={editorRef} className="inline-monaco-editor" />
+      {monacoLoaded ? (
+        <div ref={editorRef} className="inline-monaco-editor" />
+      ) : (
+        <pre className="inline-code-fallback">{currentCode}</pre>
+      )}
       {output && (
         <div className="inline-code-output">
           <pre>{output}</pre>

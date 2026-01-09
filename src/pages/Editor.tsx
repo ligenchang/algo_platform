@@ -1,9 +1,12 @@
 import { useParams, useNavigate } from 'react-router-dom'
 import { useEffect, useState, useRef } from 'react'
 import Navbar from '../components/Navbar'
+import CourseViewer from '../components/CourseViewer'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import InlineCodeEditor from '../components/InlineCodeEditor'
+import usePyodide from '../hooks/usePyodide'
+import useMonaco from '../hooks/useMonaco'
 import '../styles/CoursePage.css'
 
 declare global {
@@ -63,93 +66,65 @@ const Editor = () => {
   const monacoRef = useRef<any>(null)
   const [output, setOutput] = useState('')
   const [loading, setLoading] = useState(false)
+  const { pyodide: pyodideFromHook, loading: pyodideLoading, error: pyodideError } = usePyodide()
   const [pyodide, setPyodide] = useState<any>(null)
-  const [pyodideLoading, setPyodideLoading] = useState(true)
 
-  // Load user, Monaco, and Pyodide
+  // Load user; Monaco is provided by useMonaco hook (loaded below)
   useEffect(() => {
     const user = localStorage.getItem('user')
     if (!user) {
       navigate('/login')
       return
     }
-
-    // Load Monaco only if not already loaded
-    if (!window.require) {
-      if (!document.querySelector('script[src*="monaco-editor/0.45.0/min/vs/loader.min.js"]')) {
-        const script = document.createElement('script')
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js'
-        script.async = true
-        script.onload = () => {
-          window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } })
-          window.require(['vs/editor/editor.main'], () => {
-            setMonacoLoaded(true)
-          })
-        }
-        document.head.appendChild(script)
-      }
-    } else {
-      setMonacoLoaded(true)
-    }
-
-    // Load Pyodide globally only if not already loaded
-    if (!window.loadPyodide) {
-      if (!document.querySelector('script[src*="pyodide/v0.24.1/full/pyodide.js"]')) {
-        const pyodideScript = document.createElement('script')
-        pyodideScript.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
-        pyodideScript.async = true
-        pyodideScript.onload = async () => {
-          const pyodideInstance = await window.loadPyodide({
-            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-          })
-          setPyodide(pyodideInstance)
-          setPyodideLoading(false)
-        }
-        pyodideScript.onerror = () => {
-          setPyodideLoading(false)
-        }
-        document.head.appendChild(pyodideScript)
-      }
-    } else {
-      // Already loaded
-      (async () => {
-        const pyodideInstance = await window.loadPyodide({
-          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-        })
-        setPyodide(pyodideInstance)
-        setPyodideLoading(false)
-      })()
-    }
   }, [navigate])
 
-  // Load course metadata
+  // Monaco hook
+  const { loaded: monacoLoadedFromHook, error: monacoError } = useMonaco()
+
+  useEffect(() => {
+    if (monacoLoadedFromHook) setMonacoLoaded(true)
+    if (monacoError) console.error('Monaco load error', monacoError)
+  }, [monacoLoadedFromHook, monacoError])
+
+  // Load course metadata (centralized)
   useEffect(() => {
     if (courseMeta) return
 
+    let cancelled = false
     fetch(`/courses/${courseId}/course.json`).then(r => {
       if (r.ok) return r.json()
       return null
     }).then((meta) => {
-      if (meta) setCourseMeta(meta)
+      if (!cancelled && meta) setCourseMeta(meta)
     }).catch(() => {})
+    return () => { cancelled = true }
   }, [courseId, courseMeta])
 
-  // Load challenge/section from URL
+  // Simple in-memory cache for section contents to avoid refetching
+  const sectionCacheRef = useRef<Record<string, string>>({})
+
+  // Forward hook-provided pyodide instance into local state for compatibility
+  useEffect(() => {
+    if (pyodideFromHook) setPyodide(pyodideFromHook)
+  }, [pyodideFromHook])
+
+  // Load challenge/section from URL (initialize selection)
   useEffect(() => {
     if (!courseMeta) return
-    
+
     if (challengeId && courseMeta.challenges) {
       const challenge = courseMeta.challenges.find((ch: Challenge) => ch.id === challengeId)
       if (challenge) {
         setSelectedChallenge(challenge)
-        
+
         if (sectionId && challenge.sections) {
           const section = challenge.sections.find((sec: Section) => sec.id === sectionId)
           if (section) {
-            loadSectionContent(section.file, section, false)
+            // load via centralized loader
+            void loadSectionContent(section.file, section, false)
           }
         } else if (challenge.sections && challenge.sections.length > 0) {
-          loadSectionContent(challenge.sections[0].file, challenge.sections[0], false)
+          void loadSectionContent(challenge.sections[0].file, challenge.sections[0], false)
         }
       }
     }
@@ -161,18 +136,31 @@ const Editor = () => {
       const cid = courseMeta?.id || courseId
       const pathClean = filePath.replace(/^\/+/, '')
       const sectionPath = filePath.startsWith('/') ? filePath : `/courses/${cid}/${pathClean}`
-      
+
+      // Check cache first
+      if (sectionCacheRef.current[sectionPath]) {
+        setSelectedSection(section)
+        setSectionContent(sectionCacheRef.current[sectionPath])
+        if (updateUrl && selectedChallenge) {
+          navigate(`/course/${courseId}/${selectedChallenge.id}/${section.id}`)
+        }
+        setStatus('Ready')
+        return
+      }
+
       const resp = await fetch(sectionPath)
       if (!resp.ok) throw new Error(`Failed to load section: ${resp.status}`)
-      
+
       const txt = await resp.text()
+      // store in cache
+      sectionCacheRef.current[sectionPath] = txt
       setSelectedSection(section)
       setSectionContent(txt)
       
       if (updateUrl && selectedChallenge) {
         navigate(`/course/${courseId}/${selectedChallenge.id}/${section.id}`)
       }
-      
+
       setStatus('Ready')
     } catch (err: any) {
       console.error('Error loading section:', err)
@@ -183,7 +171,6 @@ const Editor = () => {
 
   const selectChallenge = async (ch: Challenge) => {
     setSelectedChallenge(ch)
-    
     if (ch.sections && ch.sections.length > 0) {
       const firstSection = ch.sections[0]
       await loadSectionContent(firstSection.file, firstSection)
@@ -260,31 +247,17 @@ const Editor = () => {
 
       if (!pyodideInstance) {
         setCodeBlockOutputs(prev => ({ ...prev, [blockIndex]: 'Loading Python...' }))
-        // Only load script if window.loadPyodide is not present
-        if (!window.loadPyodide) {
-          if (!document.querySelector('script[src*="pyodide/v0.24.1/full/pyodide.js"]')) {
-            const script = document.createElement('script')
-            script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
-            script.async = true
-            await new Promise((resolve, reject) => {
-              script.onload = resolve
-              script.onerror = reject
-              document.head.appendChild(script)
-            })
-          } else {
-            // Wait for script to finish loading if already present
-            await new Promise((resolve) => {
-              const checkLoaded = () => {
-                if (window.loadPyodide) resolve(true)
-                else setTimeout(checkLoaded, 50)
-              }
-              checkLoaded()
-            })
-          }
+        // Wait for centralized pyodide hook to provide instance
+        const waitForPyodideReady = async () => {
+          if (pyodide) return pyodide
+          if (pyodideFromHook) return pyodideFromHook
+          await new Promise<void>((resolve) => {
+            const check = () => (pyodideFromHook ? resolve() : setTimeout(check, 50))
+            check()
+          })
+          return pyodideFromHook
         }
-        pyodideInstance = await window.loadPyodide({
-          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-        })
+        pyodideInstance = await waitForPyodideReady()
         setPyodide(pyodideInstance)
       }
 
@@ -332,17 +305,16 @@ sys.stdout = StringIO()
 
       if (!pyodideInstance) {
         setStatus('Loading Python...')
-        const script = document.createElement('script')
-        script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
-        script.async = true
-        await new Promise((resolve, reject) => {
-          script.onload = resolve
-          script.onerror = reject
-          document.head.appendChild(script)
-        })
-        pyodideInstance = await window.loadPyodide({
-          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-        })
+        const waitForPyodideReady = async () => {
+          if (pyodide) return pyodide
+          if (pyodideFromHook) return pyodideFromHook
+          await new Promise<void>((resolve) => {
+            const check = () => (pyodideFromHook ? resolve() : setTimeout(check, 50))
+            check()
+          })
+          return pyodideFromHook
+        }
+        pyodideInstance = await waitForPyodideReady()
         setPyodide(pyodideInstance)
       }
 
@@ -380,64 +352,16 @@ sys.stdout = StringIO()
     <div className="course-page">
       <Navbar />
       <div className="course-layout">
-        {/* Unified Sidebar - Always Rendered */}
-        <aside className={`course-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
-          <div className="sidebar-header">
-            <div className="course-info">
-              {!sidebarCollapsed && (
-                <>
-                  <i className="fas fa-graduation-cap"></i>
-                  <div className="course-title">
-                    <h3>{courseMeta?.title || 'Course'}</h3>
-                    <p>Interactive Learning</p>
-                  </div>
-                </>
-              )}
-            </div>
-            <button 
-              className="collapse-btn"
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              title={sidebarCollapsed ? 'Expand' : 'Collapse'}
-            >
-              <i className={`fas fa-chevron-${sidebarCollapsed ? 'right' : 'left'}`}></i>
-            </button>
-          </div>
-
-          {!sidebarCollapsed && (
-            <div className="sidebar-content">
-              <div className="challenges-section">
-                <h4>Course Content</h4>
-                {courseMeta?.challenges?.map((ch: Challenge, idx: number) => (
-                  <div key={ch.id} className="challenge-item">
-                    <button 
-                      className={`challenge-btn ${selectedChallenge?.id === ch.id ? 'active' : ''}`}
-                      onClick={() => selectChallenge(ch)}
-                    >
-                      <span className="challenge-num">{idx + 1}</span>
-                      <span className="challenge-title">{ch.title}</span>
-                      <i className={`fas fa-chevron-${selectedChallenge?.id === ch.id ? 'down' : 'right'}`}></i>
-                    </button>
-                    
-                    {selectedChallenge?.id === ch.id && ch.sections && (
-                      <div className="sections-list">
-                        {ch.sections.map((sec: Section) => (
-                          <button
-                            key={sec.id}
-                            className={`section-btn ${selectedSection?.id === sec.id ? 'active' : ''}`}
-                            onClick={() => loadSectionContent(sec.file, sec)}
-                          >
-                            <i className={`fas fa-${selectedSection?.id === sec.id ? 'circle' : 'circle-o'}`}></i>
-                            <span>{sec.title}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </aside>
+        <CourseViewer
+          courseId={courseId || ''}
+          challengeId={selectedChallenge?.id || (challengeId || undefined)}
+          sectionId={selectedSection?.id || (sectionId || undefined)}
+          courseMeta={courseMeta}
+          onCourseMetaLoaded={(meta) => setCourseMeta(meta)}
+          onSectionSelected={(sec) => loadSectionContent(sec.file, sec)}
+          onChallengeSelected={(ch) => selectChallenge(ch)}
+          onSwitchToEditor={() => setViewMode('editor')}
+        />
 
         {/* Main Content Area */}
         <main className="course-main">
