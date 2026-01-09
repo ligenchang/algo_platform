@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -50,89 +49,10 @@ const CourseViewer = ({
   onChallengeSelected,
   onSwitchToEditor
 }: CourseViewerProps) => {
-  const navigate = useNavigate()
-  const [selectedChallenge, setSelectedChallenge] = useState<Challenge | null>(null)
-  const [selectedSection, setSelectedSection] = useState<Section | null>(null)
-  const [sectionContent, setSectionContent] = useState<string>('')
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [status, setStatus] = useState('Ready')
+  const [sidebarCollapsed, setSidebarCollapsed] = React.useState(false)
 
   // Load course metadata
-  useEffect(() => {
-    if (courseMeta) return
 
-    fetch(`/courses/${courseId}/course.json`).then(r => {
-      if (r.ok) return r.json()
-      return null
-    }).then((meta) => {
-      if (meta) {
-        onCourseMetaLoaded(meta)
-      }
-    }).catch(() => {})
-  }, [courseId, courseMeta, onCourseMetaLoaded])
-
-  // Load challenge/section from URL parameters
-  useEffect(() => {
-    if (!courseMeta) return
-    
-    if (challengeId && courseMeta.challenges) {
-      const challenge = courseMeta.challenges.find((ch: Challenge) => ch.id === challengeId)
-      if (challenge) {
-        setSelectedChallenge(challenge)
-        onChallengeSelected(challenge)
-        
-        if (sectionId && challenge.sections) {
-          const section = challenge.sections.find((sec: Section) => sec.id === sectionId)
-          if (section) {
-            loadSectionContent(section.file, section, false)
-          }
-        } else if (challenge.sections && challenge.sections.length > 0) {
-          loadSectionContent(challenge.sections[0].file, challenge.sections[0], false)
-        }
-      }
-    }
-  }, [courseMeta, challengeId, sectionId])
-
-  const loadSectionContent = async (filePath: string, section: Section, updateUrl: boolean = true) => {
-    try {
-      setStatus('Loading section...')
-      const cid = courseMeta?.id || courseId
-      const pathClean = filePath.replace(/^\/+/, '')
-      const sectionPath = filePath.startsWith('/') ? filePath : `/courses/${cid}/${pathClean}`
-      
-      const resp = await fetch(sectionPath)
-      if (!resp.ok) {
-        throw new Error(`Failed to load section: ${resp.status}`)
-      }
-      const txt = await resp.text()
-      setSelectedSection(section)
-      setSectionContent(txt)
-      onSectionSelected(section)
-      
-      if (updateUrl && selectedChallenge) {
-        navigate(`/course/${courseId}/${selectedChallenge.id}/${section.id}`)
-      }
-      
-      setStatus('Ready')
-    } catch (err: any) {
-      console.error('Error loading section:', err)
-      setSectionContent(`# Error\n\nFailed to load section content.`)
-      setStatus('Error')
-    }
-  }
-
-  const selectChallenge = async (ch: Challenge) => {
-    setSelectedChallenge(ch)
-    onChallengeSelected(ch)
-    
-    if (ch.sections && ch.sections.length > 0) {
-      const firstSection = ch.sections[0]
-      await loadSectionContent(firstSection.file, firstSection)
-      navigate(`/course/${courseId}/${ch.id}/${firstSection.id}`)
-    } else {
-      navigate(`/course/${courseId}/${ch.id}`)
-    }
-  }
 
   return (
     <>
@@ -166,23 +86,22 @@ const CourseViewer = ({
               {courseMeta?.challenges?.map((ch: Challenge, idx: number) => (
                 <div key={ch.id} className="challenge-item">
                   <button 
-                    className={`challenge-btn ${selectedChallenge?.id === ch.id ? 'active' : ''}`}
-                    onClick={() => selectChallenge(ch)}
+                    className={`challenge-btn ${challengeId === ch.id ? 'active' : ''}`}
+                    onClick={() => onChallengeSelected(ch)}
                   >
                     <span className="challenge-num">{idx + 1}</span>
                     <span className="challenge-title">{ch.title}</span>
-                    <i className={`fas fa-chevron-${selectedChallenge?.id === ch.id ? 'down' : 'right'}`}></i>
+                    <i className={`fas fa-chevron-${challengeId === ch.id ? 'down' : 'right'}`}></i>
                   </button>
-                  
-                  {selectedChallenge?.id === ch.id && ch.sections && (
+                  {challengeId === ch.id && ch.sections && (
                     <div className="sections-list">
                       {ch.sections.map((sec: Section) => (
                         <button
                           key={sec.id}
-                          className={`section-btn ${selectedSection?.id === sec.id ? 'active' : ''}`}
-                          onClick={() => loadSectionContent(sec.file, sec)}
+                          className={`section-btn ${sectionId === sec.id ? 'active' : ''}`}
+                          onClick={() => onSectionSelected(sec)}
                         >
-                          <i className={`fas fa-${selectedSection?.id === sec.id ? 'circle' : 'circle-o'}`}></i>
+                          <i className={`fas fa-${sectionId === sec.id ? 'circle' : 'circle-o'}`}></i>
                           <span>{sec.title}</span>
                         </button>
                       ))}

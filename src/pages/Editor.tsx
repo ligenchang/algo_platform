@@ -74,33 +74,52 @@ const Editor = () => {
       return
     }
 
-    // Load Monaco
-    const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js'
-    script.async = true
-    script.onload = () => {
-      window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } })
-      window.require(['vs/editor/editor.main'], () => {
-        setMonacoLoaded(true)
-      })
+    // Load Monaco only if not already loaded
+    if (!window.require) {
+      if (!document.querySelector('script[src*="monaco-editor/0.45.0/min/vs/loader.min.js"]')) {
+        const script = document.createElement('script')
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js'
+        script.async = true
+        script.onload = () => {
+          window.require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } })
+          window.require(['vs/editor/editor.main'], () => {
+            setMonacoLoaded(true)
+          })
+        }
+        document.head.appendChild(script)
+      }
+    } else {
+      setMonacoLoaded(true)
     }
-    document.head.appendChild(script)
 
-    // Load Pyodide globally
-    const pyodideScript = document.createElement('script')
-    pyodideScript.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
-    pyodideScript.async = true
-    pyodideScript.onload = async () => {
-      const pyodideInstance = await window.loadPyodide({
-        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
-      })
-      setPyodide(pyodideInstance)
-      setPyodideLoading(false)
+    // Load Pyodide globally only if not already loaded
+    if (!window.loadPyodide) {
+      if (!document.querySelector('script[src*="pyodide/v0.24.1/full/pyodide.js"]')) {
+        const pyodideScript = document.createElement('script')
+        pyodideScript.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
+        pyodideScript.async = true
+        pyodideScript.onload = async () => {
+          const pyodideInstance = await window.loadPyodide({
+            indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+          })
+          setPyodide(pyodideInstance)
+          setPyodideLoading(false)
+        }
+        pyodideScript.onerror = () => {
+          setPyodideLoading(false)
+        }
+        document.head.appendChild(pyodideScript)
+      }
+    } else {
+      // Already loaded
+      (async () => {
+        const pyodideInstance = await window.loadPyodide({
+          indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+        })
+        setPyodide(pyodideInstance)
+        setPyodideLoading(false)
+      })()
     }
-    pyodideScript.onerror = () => {
-      setPyodideLoading(false)
-    }
-    document.head.appendChild(pyodideScript)
   }, [navigate])
 
   // Load course metadata
@@ -241,14 +260,28 @@ const Editor = () => {
 
       if (!pyodideInstance) {
         setCodeBlockOutputs(prev => ({ ...prev, [blockIndex]: 'Loading Python...' }))
-        const script = document.createElement('script')
-        script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
-        script.async = true
-        await new Promise((resolve, reject) => {
-          script.onload = resolve
-          script.onerror = reject
-          document.head.appendChild(script)
-        })
+        // Only load script if window.loadPyodide is not present
+        if (!window.loadPyodide) {
+          if (!document.querySelector('script[src*="pyodide/v0.24.1/full/pyodide.js"]')) {
+            const script = document.createElement('script')
+            script.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
+            script.async = true
+            await new Promise((resolve, reject) => {
+              script.onload = resolve
+              script.onerror = reject
+              document.head.appendChild(script)
+            })
+          } else {
+            // Wait for script to finish loading if already present
+            await new Promise((resolve) => {
+              const checkLoaded = () => {
+                if (window.loadPyodide) resolve(true)
+                else setTimeout(checkLoaded, 50)
+              }
+              checkLoaded()
+            })
+          }
+        }
         pyodideInstance = await window.loadPyodide({
           indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
         })
