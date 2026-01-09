@@ -3,8 +3,7 @@ import { useEffect, useState, useRef } from 'react'
 import Navbar from '../components/Navbar'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import InlineCodeEditor from '../components/InlineCodeEditor'
 import '../styles/CoursePage.css'
 
 declare global {
@@ -65,8 +64,9 @@ const Editor = () => {
   const [output, setOutput] = useState('')
   const [loading, setLoading] = useState(false)
   const [pyodide, setPyodide] = useState<any>(null)
+  const [pyodideLoading, setPyodideLoading] = useState(true)
 
-  // Load user and Monaco
+  // Load user, Monaco, and Pyodide
   useEffect(() => {
     const user = localStorage.getItem('user')
     if (!user) {
@@ -74,6 +74,7 @@ const Editor = () => {
       return
     }
 
+    // Load Monaco
     const script = document.createElement('script')
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js'
     script.async = true
@@ -84,6 +85,22 @@ const Editor = () => {
       })
     }
     document.head.appendChild(script)
+
+    // Load Pyodide globally
+    const pyodideScript = document.createElement('script')
+    pyodideScript.src = 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js'
+    pyodideScript.async = true
+    pyodideScript.onload = async () => {
+      const pyodideInstance = await window.loadPyodide({
+        indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.24.1/full/'
+      })
+      setPyodide(pyodideInstance)
+      setPyodideLoading(false)
+    }
+    pyodideScript.onerror = () => {
+      setPyodideLoading(false)
+    }
+    document.head.appendChild(pyodideScript)
   }, [navigate])
 
   // Load course metadata
@@ -442,43 +459,29 @@ sys.stdout = StringIO()
                           const match = /language-(\w+)/.exec(className || '')
                           const language = match ? match[1] : ''
                           const codeString = String(children).replace(/\n$/, '')
-                          
                           if (!inline && language === 'python') {
                             const blockIndex = node?.position?.start?.line || Math.random()
-                            const hasOutput = codeBlockOutputs[blockIndex]
-                            const isRunning = runningCodeBlock === blockIndex
-                            
                             return (
                               <div className="code-block-wrapper">
-                                <div className="code-block-header">
-                                  <span className="code-block-language">
-                                    <i className="fab fa-python"></i> Python
-                                  </span>
-                                  <button
-                                    className="code-block-run-btn"
-                                    onClick={() => runCodeBlock(codeString, blockIndex)}
-                                    disabled={isRunning}
-                                  >
-                                    <i className={`fas fa-${isRunning ? 'spinner fa-spin' : 'play'}`}></i>
-                                    {isRunning ? 'Running...' : 'Run'}
-                                  </button>
-                                </div>
-                                <SyntaxHighlighter
-                                  style={vscDarkPlus}
+                                {/* Monaco-based inline code editor */}
+                                <InlineCodeEditor
+                                  code={codeString}
                                   language={language}
-                                  PreTag="div"
-                                  {...props}
-                                >
-                                  {codeString}
-                                </SyntaxHighlighter>
-                                {hasOutput && (
-                                  <div className="code-block-output">
-                                    <div className="code-block-output-header">
-                                      <i className="fas fa-terminal"></i> Output
-                                    </div>
-                                    <pre>{codeBlockOutputs[blockIndex]}</pre>
-                                  </div>
-                                )}
+                                  blockIndex={blockIndex}
+                                  monacoLoaded={monacoLoaded}
+                                  pyodideLoading={pyodideLoading}
+                                  onRun={async (code) => {
+                                    if (pyodideLoading || !pyodide) return 'Python is still loading. Please wait...'
+                                    try {
+                                      await pyodide.runPythonAsync(`import sys\nfrom io import StringIO\nsys.stdout = StringIO()`)
+                                      await pyodide.runPythonAsync(code)
+                                      const stdout = await pyodide.runPythonAsync('sys.stdout.getvalue()')
+                                      return stdout || 'Code executed successfully (no output)'
+                                    } catch (error) {
+                                      return `Error: ${error instanceof Error ? error.message : String(error)}`
+                                    }
+                                  }}
+                                />
                               </div>
                             )
                           }

@@ -1,0 +1,78 @@
+.inline-code-block {
+  margin: 18px 0;
+  background: #23272e;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  padding: 0 0 12px 0;
+}
+
+.inline-code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px 4px 16px;
+}
+
+.inline-code-lang {
+  font-size: 13px;
+  color: #b3b3b3;
+  font-weight: 600;
+  letter-spacing: 1px;
+}
+
+.inline-code-run-btn {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.inline-code-run-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+.inline-code-run-btn:disabled {
+  background: #a5b4fc;
+  cursor: not-allowed;
+}
+.inline-code-run-btn .spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fff;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+}
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.inline-monaco-editor {
+  width: 100%;
+  min-height: 80px;
+  background: #1e1e1e;
+  border-radius: 6px;
+  margin: 0 16px;
+  margin-bottom: 8px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+
+.inline-code-output {
+  background: #18181b;
+  color: #e5e7eb;
+  border-radius: 6px;
+  margin: 0 16px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: 'Fira Mono', 'Menlo', 'Monaco', 'Consolas', monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
